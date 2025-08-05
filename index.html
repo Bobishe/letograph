@@ -88,7 +88,8 @@
                 line.setStyle({ color: colorFromSignal(n.r) });
                 const tooltip = line.getTooltip();
                 if (tooltip) {
-                  tooltip.setLatLng(line.getCenter());
+                  const mid = line.getBounds().getCenter(); // не зависит от line._map
+                  tooltip.setLatLng(mid);
                   line.setTooltipContent(String(n.r));
                 }
               }
