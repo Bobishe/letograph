@@ -48,7 +48,9 @@
 
       function updateGraph(data) {
         const bounds = [];
+        const currentIds = new Set();
         for (const [id, info] of Object.entries(data)) {
+          currentIds.add(id);
           const latlng = [info.lat, info.lng];
           bounds.push(latlng);
           if (!markers.has(id)) {
@@ -101,6 +103,12 @@
           if (!seen.has(key)) {
             map.removeLayer(line);
             lines.delete(key);
+          }
+        }
+        for (const [id, marker] of Array.from(markers)) {
+          if (!currentIds.has(id)) {
+            map.removeLayer(marker);
+            markers.delete(id);
           }
         }
         if (!initialized && bounds.length) {
