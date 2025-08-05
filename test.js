@@ -1,5 +1,7 @@
 const assert = require('assert');
-const { start, data } = require('./server');
+const fs = require('fs');
+const path = require('path');
+const { start } = require('./server');
 
 (async () => {
   const server = await start(0); // random available port
@@ -14,7 +16,10 @@ const { start, data } = require('./server');
     const res = await fetch(`http://localhost:${port}/data`);
     assert.strictEqual(res.status, 200);
     const json = await res.json();
-    assert.deepStrictEqual(json, data);
+    const expected = JSON.parse(
+      fs.readFileSync(path.join(__dirname, 'data.json'), 'utf-8')
+    );
+    assert.deepStrictEqual(json, expected);
     console.log('Test passed');
   } catch (err) {
     console.error('Test failed', err);
