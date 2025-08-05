@@ -23,6 +23,7 @@
       .attr("height", height);
 
     const linkGroup = svg.append("g").attr("class", "links");
+    const linkLabelGroup = svg.append("g").attr("class", "link-labels");
     const nodeGroup = svg.append("g").attr("class", "nodes");
 
     // keep a persistent set of nodes/links so their positions are retained
@@ -50,6 +51,17 @@
         .attr("stroke", d => colorFromSignal(d.r));
       links.merge(linksEnter);
 
+      const linkLabels = linkLabelGroup.selectAll("text")
+        .data(graph.links, d => `${d.source.id}-${d.target.id}`);
+      linkLabels.exit().remove();
+      const linkLabelsEnter = linkLabels.enter().append("text")
+        .attr("class", "link-label")
+        .attr("text-anchor", "middle")
+        .attr("dy", -3);
+      linkLabels.merge(linkLabelsEnter)
+        .text(d => d.r)
+        .attr("fill", d => colorFromSignal(d.r));
+
       const nodesSelection = nodeGroup.selectAll("g")
         .data(graph.nodes, d => d.id);
       nodesSelection.exit().remove();
@@ -74,6 +86,10 @@
         .attr("y1", d => d.source.y)
         .attr("x2", d => d.target.x)
         .attr("y2", d => d.target.y);
+
+      linkLabelGroup.selectAll("text")
+        .attr("x", d => (d.source.x + d.target.x) / 2)
+        .attr("y", d => (d.source.y + d.target.y) / 2);
 
       nodeGroup.selectAll("g")
         .attr("transform", d => `translate(${d.x},${d.y})`);
