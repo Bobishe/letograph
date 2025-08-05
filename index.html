@@ -11,6 +11,13 @@
   />
   <style>
     html, body, #map { height: 100%; margin: 0; }
+    .signal-label {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      color: #000;
+    }
   </style>
 </head>
 <body>
@@ -56,10 +63,20 @@
             const key = [id, n.n].sort().join('-');
             const coords = [ [info.lat, info.lng], [data[n.n].lat, data[n.n].lng] ];
             if (!lines.has(key)) {
-              lines.set(key, L.polyline(coords, { color: colorFromSignal(n.r) }).addTo(map));
+              const line = L.polyline(coords, { color: colorFromSignal(n.r) }).addTo(map);
+              line.bindTooltip(String(n.r), {
+                permanent: true,
+                direction: 'center',
+                className: 'signal-label'
+              });
+              lines.set(key, line);
             } else {
-              lines.get(key).setLatLngs(coords);
-              lines.get(key).setStyle({ color: colorFromSignal(n.r) });
+              const line = lines.get(key);
+              line.setLatLngs(coords);
+              line.setStyle({ color: colorFromSignal(n.r) });
+              if (line.getTooltip()) {
+                line.setTooltipContent(String(n.r));
+              }
             }
             seen.add(key);
           }
