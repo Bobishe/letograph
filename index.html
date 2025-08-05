@@ -1,108 +1,116 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8" />
-  <title>Network Map</title>
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-sA+e2l9mQvEJxvCttx42s8tHux0wU6xkY0oKUp6Y9Eo="
-    crossorigin=""
-  />
-  <style>
-    html, body, #map { height: 100%; margin: 0; }
-    .signal-label {
-      background: transparent;
-      border: none;
-      box-shadow: none;
-      padding: 0;
-      color: #000;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-o9N1j0wG8b3xFZ8K4D4x3Efr2E1VlzDqgW8BVZ4M0wY="
-    crossorigin=""
-  ></script>
-  <script>
-    const map = L.map('map');
-    const markers = new Map();
-    const lines = new Map();
-    let initialized = false;
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
-
-    function colorFromSignal(r) {
-      if (r >= 0) return '#999';
-      const strength = Math.min(Math.abs(r) / 100, 1);
-      const hue = (1 - strength) * 120; // 120=green, 0=red
-      return `hsl(${hue}, 100%, 50%)`;
-    }
-
-    function updateGraph(data) {
-      const bounds = [];
-      for (const [id, info] of Object.entries(data)) {
-        const latlng = [info.lat, info.lng];
-        bounds.push(latlng);
-        if (!markers.has(id)) {
-          markers.set(id, L.marker(latlng).addTo(map).bindPopup(`Node ${id}`));
-        } else {
-          markers.get(id).setLatLng(latlng);
-        }
+  <head>
+    <meta charset="UTF-8" />
+    <title>Лётограф</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <style>
+      html,
+      body,
+      #map {
+        height: 100%;
+        margin: 0;
       }
-      const seen = new Set();
-      for (const [id, info] of Object.entries(data)) {
-        info.neighbors.forEach(n => {
-          if (n.n > 0 && n.r < 0 && data[n.n]) {
-            const key = [id, n.n].sort().join('-');
-            const coords = [ [info.lat, info.lng], [data[n.n].lat, data[n.n].lng] ];
-            if (!lines.has(key)) {
-              const line = L.polyline(coords, { color: colorFromSignal(n.r) }).addTo(map);
-              line.bindTooltip(String(n.r), {
-                permanent: true,
-                direction: 'center',
-                className: 'signal-label'
-              });
-              lines.set(key, line);
-            } else {
-              const line = lines.get(key);
-              line.setLatLngs(coords);
-              line.setStyle({ color: colorFromSignal(n.r) });
-              if (line.getTooltip()) {
-                line.setTooltipContent(String(n.r));
-              }
-            }
-            seen.add(key);
+      .signal-label {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        color: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      const map = L.map("map");
+      const markers = new Map();
+      const lines = new Map();
+      let initialized = false;
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 26,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+
+      function colorFromSignal(r) {
+        if (r >= 0) return "#999";
+        const strength = Math.min(Math.abs(r) / 100, 1);
+        const hue = (1 - strength) * 120; // 120=green, 0=red
+        return `hsl(${hue}, 100%, 50%)`;
+      }
+
+      function updateGraph(data) {
+        const bounds = [];
+        for (const [id, info] of Object.entries(data)) {
+          const latlng = [info.lat, info.lng];
+          bounds.push(latlng);
+          if (!markers.has(id)) {
+            markers.set(
+              id,
+              L.marker(latlng).addTo(map).bindPopup(`Node ${id}`)
+            );
+          } else {
+            markers.get(id).setLatLng(latlng);
           }
-        });
-      }
-      for (const [key, line] of lines) {
-        if (!seen.has(key)) {
-          map.removeLayer(line);
-          lines.delete(key);
+        }
+        const seen = new Set();
+        for (const [id, info] of Object.entries(data)) {
+          info.neighbors.forEach((n) => {
+            if (n.n > 0 && n.r < 0 && data[n.n]) {
+              const key = [id, n.n].sort().join("-");
+              const coords = [
+                [info.lat, info.lng],
+                [data[n.n].lat, data[n.n].lng],
+              ];
+              if (!lines.has(key)) {
+                const line = L.polyline(coords, {
+                  color: colorFromSignal(n.r),
+                }).addTo(map);
+                line.bindTooltip(String(n.r), {
+                  permanent: true,
+                  direction: "center",
+                  className: "signal-label",
+                });
+                lines.set(key, line);
+              } else {
+                const line = lines.get(key);
+                line.setLatLngs(coords);
+                line.setStyle({ color: colorFromSignal(n.r) });
+                if (line.getTooltip()) {
+                  line.setTooltipContent(String(n.r));
+                }
+              }
+              seen.add(key);
+            }
+          });
+        }
+        for (const [key, line] of lines) {
+          if (!seen.has(key)) {
+            map.removeLayer(line);
+            lines.delete(key);
+          }
+        }
+        if (!initialized && bounds.length) {
+          map.fitBounds(bounds, { padding: [20, 20] });
+          initialized = true;
         }
       }
-      if (!initialized && bounds.length) {
-        map.fitBounds(bounds, { padding: [20, 20] });
-        initialized = true;
+
+      function fetchData() {
+        fetch("/data")
+          .then((res) => res.json())
+          .then(updateGraph)
+          .catch((err) => console.error("Failed to load data", err));
       }
-    }
 
-    function fetchData() {
-      fetch('/data')
-        .then(res => res.json())
-        .then(updateGraph)
-        .catch(err => console.error('Failed to load data', err));
-    }
-
-    fetchData();
-    setInterval(fetchData, 2000);
-  </script>
-</body>
+      fetchData();
+      setInterval(fetchData, 2000);
+    </script>
+  </body>
 </html>
