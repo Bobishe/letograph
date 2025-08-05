@@ -2,120 +2,85 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Network Topology</title>
+  <title>Network Map</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-sA+e2l9mQvEJxvCttx42s8tHux0wU6xkY0oKUp6Y9Eo="
+    crossorigin=""
+  />
   <style>
-    html, body { height: 100%; margin: 0; }
-    #graph { width: 100%; height: 100%; }
-    .link { stroke: #999; stroke-opacity: 0.6; }
-    .node { fill: steelblue; }
-    text { font: 12px sans-serif; pointer-events: none; }
+    html, body, #map { height: 100%; margin: 0; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 </head>
 <body>
-  <div id="graph"></div>
+  <div id="map"></div>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-o9N1j0wG8b3xFZ8K4D4x3Efr2E1VlzDqgW8BVZ4M0wY="
+    crossorigin=""
+  ></script>
   <script>
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const map = L.map('map');
+    const markers = new Map();
+    const lines = new Map();
+    let initialized = false;
 
-    const svg = d3.select("#graph").append("svg")
-      .attr("width", width)
-      .attr("height", height);
-
-    const linkGroup = svg.append("g").attr("class", "links");
-    const linkLabelGroup = svg.append("g").attr("class", "link-labels");
-    const nodeGroup = svg.append("g").attr("class", "nodes");
-
-    // keep a persistent set of nodes/links so their positions are retained
-    let nodes = [];
-    let links = [];
-
-    const simulation = d3.forceSimulation()
-      .force("link", d3.forceLink().id(d => d.id).distance(80))
-      .force("charge", d3.forceManyBody().strength(-200))
-      .force("center", d3.forceCenter(width / 2, height / 2));
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
     function colorFromSignal(r) {
       if (r >= 0) return '#999';
       const strength = Math.min(Math.abs(r) / 100, 1);
-      return d3.interpolateRdYlGn(1 - strength);
+      const hue = (1 - strength) * 120; // 120=green, 0=red
+      return `hsl(${hue}, 100%, 50%)`;
     }
 
-    function updateGraph(graph) {
-      const links = linkGroup.selectAll("line")
-        .data(graph.links, d => `${d.source.id}-${d.target.id}`);
-      links.exit().remove();
-      const linksEnter = links.enter().append("line")
-        .attr("class", "link")
-        .attr("stroke-width", 2)
-        .attr("stroke", d => colorFromSignal(d.r));
-      links.merge(linksEnter);
-
-      const linkLabels = linkLabelGroup.selectAll("text")
-        .data(graph.links, d => `${d.source.id}-${d.target.id}`);
-      linkLabels.exit().remove();
-      const linkLabelsEnter = linkLabels.enter().append("text")
-        .attr("class", "link-label")
-        .attr("text-anchor", "middle")
-        .attr("dy", -3);
-      linkLabels.merge(linkLabelsEnter)
-        .text(d => d.r)
-        .attr("fill", d => colorFromSignal(d.r));
-
-      const nodesSelection = nodeGroup.selectAll("g")
-        .data(graph.nodes, d => d.id);
-      nodesSelection.exit().remove();
-      const nodeEnter = nodesSelection.enter().append("g");
-      nodeEnter.append("circle")
-        .attr("class", "node")
-        .attr("r", 10);
-      nodeEnter.append("text")
-        .attr("x", 12)
-        .attr("y", 3)
-        .text(d => d.id);
-      nodesSelection.merge(nodeEnter);
-
-      simulation.nodes(graph.nodes).on("tick", ticked);
-      simulation.force("link").links(graph.links);
-      simulation.alpha(0.3).restart();
-    }
-
-    function ticked() {
-      linkGroup.selectAll("line")
-        .attr("x1", d => d.source.x)
-        .attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x)
-        .attr("y2", d => d.target.y);
-
-      linkLabelGroup.selectAll("text")
-        .attr("x", d => (d.source.x + d.target.x) / 2)
-        .attr("y", d => (d.source.y + d.target.y) / 2);
-
-      nodeGroup.selectAll("g")
-        .attr("transform", d => `translate(${d.x},${d.y})`);
+    function updateGraph(data) {
+      const bounds = [];
+      for (const [id, info] of Object.entries(data)) {
+        const latlng = [info.lat, info.lng];
+        bounds.push(latlng);
+        if (!markers.has(id)) {
+          markers.set(id, L.marker(latlng).addTo(map).bindPopup(`Node ${id}`));
+        } else {
+          markers.get(id).setLatLng(latlng);
+        }
+      }
+      const seen = new Set();
+      for (const [id, info] of Object.entries(data)) {
+        info.neighbors.forEach(n => {
+          if (n.n > 0 && n.r < 0 && data[n.n]) {
+            const key = [id, n.n].sort().join('-');
+            const coords = [ [info.lat, info.lng], [data[n.n].lat, data[n.n].lng] ];
+            if (!lines.has(key)) {
+              lines.set(key, L.polyline(coords, { color: colorFromSignal(n.r) }).addTo(map));
+            } else {
+              lines.get(key).setLatLngs(coords);
+              lines.get(key).setStyle({ color: colorFromSignal(n.r) });
+            }
+            seen.add(key);
+          }
+        });
+      }
+      for (const [key, line] of lines) {
+        if (!seen.has(key)) {
+          map.removeLayer(line);
+          lines.delete(key);
+        }
+      }
+      if (!initialized && bounds.length) {
+        map.fitBounds(bounds, { padding: [20, 20] });
+        initialized = true;
+      }
     }
 
     function fetchData() {
       fetch('/data')
         .then(res => res.json())
-        .then(json => {
-          // reuse existing node objects so positions are kept between updates
-          const nodesMap = new Map(nodes.map(n => [n.id, n]));
-          const newLinks = [];
-          for (const [source, neighbors] of Object.entries(json)) {
-            const srcId = Number(source);
-            if (!nodesMap.has(srcId)) nodesMap.set(srcId, { id: srcId });
-            neighbors.forEach(n => {
-              if (n.n > 0 && n.r < 0) {
-                if (!nodesMap.has(n.n)) nodesMap.set(n.n, { id: n.n });
-                newLinks.push({ source: srcId, target: n.n, r: n.r });
-              }
-            });
-          }
-          nodes = Array.from(nodesMap.values());
-          links = newLinks;
-          updateGraph({ nodes, links });
-        })
+        .then(updateGraph)
         .catch(err => console.error('Failed to load data', err));
     }
 
