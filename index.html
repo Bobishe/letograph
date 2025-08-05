@@ -83,7 +83,9 @@
                 const line = lines.get(key);
                 line.setLatLngs(coords);
                 line.setStyle({ color: colorFromSignal(n.r) });
-                if (line.getTooltip()) {
+                const tooltip = line.getTooltip();
+                if (tooltip) {
+                  tooltip.setLatLng(line.getCenter());
                   line.setTooltipContent(String(n.r));
                 }
               }
