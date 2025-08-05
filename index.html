@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Network Topology</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #graph { width: 100%; height: 100%; }
+    .link { stroke: #999; stroke-opacity: 0.6; }
+    .node { fill: steelblue; }
+    text { font: 12px sans-serif; pointer-events: none; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+</head>
+<body>
+  <div id="graph"></div>
+  <script>
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const svg = d3.select("#graph").append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    const linkGroup = svg.append("g").attr("class", "links");
+    const nodeGroup = svg.append("g").attr("class", "nodes");
+
+    const simulation = d3.forceSimulation()
+      .force("link", d3.forceLink().id(d => d.id).distance(80))
+      .force("charge", d3.forceManyBody().strength(-200))
+      .force("center", d3.forceCenter(width / 2, height / 2));
+
+    function colorFromSignal(r) {
+      if (r >= 0) return '#999';
+      const strength = Math.min(Math.abs(r) / 100, 1);
+      return d3.interpolateRdYlGn(1 - strength);
+    }
+
+    function updateGraph(graph) {
+      const links = linkGroup.selectAll("line")
+        .data(graph.links, d => `${d.source.id}-${d.target.id}`);
+      links.exit().remove();
+      const linksEnter = links.enter().append("line")
+        .attr("class", "link")
+        .attr("stroke-width", 2)
+        .attr("stroke", d => colorFromSignal(d.r));
+      links.merge(linksEnter);
+
+      const nodes = nodeGroup.selectAll("g")
+        .data(graph.nodes, d => d.id);
+      nodes.exit().remove();
+      const nodeEnter = nodes.enter().append("g")
+        .call(d3.drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended));
+      nodeEnter.append("circle")
+        .attr("class", "node")
+        .attr("r", 10);
+      nodeEnter.append("text")
+        .attr("x", 12)
+        .attr("y", 3)
+        .text(d => d.id);
+      nodes.merge(nodeEnter);
+
+      simulation.nodes(graph.nodes).on("tick", ticked);
+      simulation.force("link").links(graph.links);
+      simulation.alpha(1).restart();
+    }
+
+    function ticked() {
+      linkGroup.selectAll("line")
+        .attr("x1", d => d.source.x)
+        .attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => d.target.y);
+
+      nodeGroup.selectAll("g")
+        .attr("transform", d => `translate(${d.x},${d.y})`);
+    }
+
+    function fetchData() {
+      fetch('/data')
+        .then(res => res.json())
+        .then(json => {
+          const nodesMap = new Map();
+          const links = [];
+          for (const [source, neighbors] of Object.entries(json)) {
+            const srcId = Number(source);
+            nodesMap.set(srcId, { id: srcId });
+            neighbors.forEach(n => {
+              if (n.n > 0 && n.r < 0) {
+                nodesMap.set(n.n, { id: n.n });
+                links.push({ source: srcId, target: n.n, r: n.r });
+              }
+            });
+          }
+          updateGraph({ nodes: [...nodesMap.values()], links });
+        })
+        .catch(err => console.error('Failed to load data', err));
+    }
+
+    function dragstarted(event, d) {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    }
+
+    function dragged(event, d) {
+      d.fx = event.x;
+      d.fy = event.y;
+    }
+
+    function dragended(event, d) {
+      if (!event.active) simulation.alphaTarget(0);
+      d.fx = null;
+      d.fy = null;
+    }
+
+    fetchData();
+    setInterval(fetchData, 2000);
+  </script>
+</body>
+</html>
