@@ -81,6 +81,9 @@
                 lines.set(key, line);
               } else {
                 const line = lines.get(key);
+                if (!map.hasLayer(line)) {
+                  line.addTo(map);
+                }
                 line.setLatLngs(coords);
                 line.setStyle({ color: colorFromSignal(n.r) });
                 const tooltip = line.getTooltip();
