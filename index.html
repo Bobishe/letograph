@@ -51,26 +51,40 @@
         const bounds = [];
         const currentIds = new Set();
         for (const [id, info] of Object.entries(data)) {
-          currentIds.add(id);
-          const latlng = [info.lat, info.lng];
-          bounds.push(latlng);
-          if (!markers.has(id)) {
-            markers.set(
-              id,
-              L.marker(latlng).addTo(map).bindPopup(`Node ${id}`)
-            );
-          } else {
-            markers.get(id).setLatLng(latlng);
+          const lat = info.gps_lat;
+          const lng = info.gps_lan;
+          if (lat != null && lng != null) {
+            currentIds.add(id);
+            const latlng = [lat, lng];
+            bounds.push(latlng);
+            if (!markers.has(id)) {
+              markers.set(
+                id,
+                L.marker(latlng).addTo(map).bindPopup(`Node ${id}`)
+              );
+            } else {
+              markers.get(id).setLatLng(latlng);
+            }
           }
         }
         const seen = new Set();
         for (const [id, info] of Object.entries(data)) {
-          info.neighbors.forEach((n) => {
+          const lat1 = info.gps_lat;
+          const lng1 = info.gps_lan;
+          if (lat1 == null || lng1 == null) continue;
+          const neighbors = info.neighbors
+            ? Object.values(info.neighbors)
+            : [];
+          neighbors.forEach((n) => {
             if (n.n > 0 && n.r < 0 && data[n.n]) {
+              const other = data[n.n];
+              const lat2 = other.gps_lat;
+              const lng2 = other.gps_lan;
+              if (lat2 == null || lng2 == null) return;
               const key = [id, n.n].sort().join("-");
               const coords = [
-                [info.lat, info.lng],
-                [data[n.n].lat, data[n.n].lng],
+                [lat1, lng1],
+                [lat2, lng2],
               ];
               if (!lines.has(key)) {
                 const line = L.polyline(coords, {
